@@ -1,7 +1,7 @@
 {
   "name": "Shake Color App",
   "short_name": "ShakeColor",
-  "description": "Secousse lente = flash arc-en-ciel rapide, secousse rapide = progression vers blanc",
+  "description": "Mouvement fluide = flash arc-en-ciel, mouvement saccadé = progression vers blanc",
   "start_url": "./index.html",
   "display": "fullscreen",
   "background_color": "#333333",

@@ -103,41 +103,48 @@
 
     // Estimation gravité
     const gravity = { x: 0, y: 0, z: 0 };
-    const alpha = 0.92;
+    const alpha = 0.9;
 
     // Lissage magnitude
     let smoothMagnitude = 0;
-    const magSmoothAlpha = 0.75;
+    const magSmoothAlpha = 0.7;
 
-    // Seuils pour différencier lent/rapide
-    const SLOW_SHAKE_MIN = 1.5;  // Secousse lente minimum
-    const SLOW_SHAKE_MAX = 3.5;  // Secousse lente maximum
-    const FAST_SHAKE_MIN = 3.5;  // Secousse rapide minimum
+    // Détection de la "fluidité" vs "saccadé"
+    let magnitudeHistory = [];
+    const HISTORY_SIZE = 10; // Garder 10 dernières valeurs
+    let jerkiness = 0; // Mesure des à-coups
+
+    // Seuils
+    const MIN_MOVEMENT = 0.8;     // Mouvement minimum pour déclencher
+    const JERKINESS_THRESHOLD = 1.5; // Au-dessus = saccadé, en-dessous = fluide
 
     // États
-    let currentMode = 'idle'; // 'idle', 'slow_shake', 'fast_shake'
+    let currentMode = 'idle'; // 'idle', 'smooth', 'jerky'
     let modeTimeout = null;
-    let fastShakeStartTime = 0;
-    let fastShakeStep = 0;
+    let jerkyStartTime = 0;
+    let jerkyStep = 0;
 
-    // Couleurs arc-en-ciel pour flash rapide
+    // Couleurs arc-en-ciel pour mouvement fluide (flash rapide continu)
     const rainbowColors = [
-      '#ff0000', '#ff4500', '#ffa500', '#ffff00', 
-      '#9aff9a', '#00ff00', '#00ffff', '#0080ff', 
-      '#0000ff', '#8000ff', '#ff00ff', '#ff1493',
-      '#ff6347', '#32cd32', '#1e90ff', '#da70d6'
+      '#ff0000', '#ff2200', '#ff4400', '#ff6600', '#ff8800', '#ffaa00',
+      '#ffcc00', '#ffee00', '#ffff00', '#ddff00', '#bbff00', '#99ff00',
+      '#77ff00', '#55ff00', '#33ff00', '#11ff00', '#00ff00', '#00ff22',
+      '#00ff44', '#00ff66', '#00ff88', '#00ffaa', '#00ffcc', '#00ffee',
+      '#00ffff', '#00eeff', '#00ccff', '#00aaff', '#0088ff', '#0066ff',
+      '#0044ff', '#0022ff', '#0000ff', '#2200ff', '#4400ff', '#6600ff',
+      '#8800ff', '#aa00ff', '#cc00ff', '#ee00ff', '#ff00ff', '#ff00ee',
+      '#ff00cc', '#ff00aa', '#ff0088', '#ff0066', '#ff0044', '#ff0022'
     ];
     let colorIndex = 0;
 
-    // Progression pour secousse rapide (toutes les secondes)
-    const fastShakeColors = [
+    // 20 couleurs pour mouvement saccadé (0.5s chacune = 10s total)
+    const jerkyColors = [
       '#333333', // gris (0s)
-      '#00ff00', // vert (1s)
-      '#ffff00', // jaune (2s)
-      '#ffa500', // orange (3s)
-      '#ff4500', // rouge-orange (4s)
-      '#ff0000', // rouge (5s)
-      '#ffffff'  // blanc (6s)
+      '#004400', '#006600', '#008800', '#00aa00', '#00cc00', // verts progressifs
+      '#00ff00', '#22ff00', '#44ff00', '#66ff00', '#88ff00', // vert vers jaune
+      '#aaff00', '#ccff00', '#eeff00', '#ffff00', '#ffcc00', // jaunes/oranges
+      '#ff9900', '#ff6600', '#ff3300', '#ff0000', // oranges/rouges
+      '#ffffff'  // blanc final (10s)
     ];
 
     function start(){
@@ -166,24 +173,38 @@
     }
 
     function enableTouchFallback(){
-      let tapCount = 0;
-      let tapTimer = null;
+      let touchStartTime = 0;
+      let touchMoveCount = 0;
+      let touchTimer = null;
 
       container.addEventListener('touchstart', (e) => {
         e.preventDefault();
-        tapCount++;
+        touchStartTime = Date.now();
+        touchMoveCount = 0;
+      }, {passive: false});
 
-        clearTimeout(tapTimer);
-        tapTimer = setTimeout(() => {
-          if (tapCount >= 1 && tapCount <= 2) {
-            // 1-2 taps = secousse lente
-            startSlowShake();
-          } else if (tapCount >= 3) {
-            // 3+ taps = secousse rapide
-            startFastShake();
+      container.addEventListener('touchmove', (e) => {
+        e.preventDefault();
+        touchMoveCount++;
+      }, {passive: false});
+
+      container.addEventListener('touchend', (e) => {
+        e.preventDefault();
+        const duration = Date.now() - touchStartTime;
+
+        clearTimeout(touchTimer);
+
+        if (duration > 100) { // Mouvement assez long
+          if (touchMoveCount > 20) {
+            // Beaucoup de mouvements = saccadé
+            startJerkyMode();
+          } else if (touchMoveCount > 5) {
+            // Peu de mouvements = fluide
+            startSmoothMode();
           }
-          tapCount = 0;
-        }, 400);
+        }
+
+        touchTimer = setTimeout(stopAllModes, 800);
       }, {passive: false});
     }
 
@@ -195,6 +216,7 @@
 
       const now = e.timeStamp ? e.timeStamp : performance.now();
       if (!lastTS) lastTS = now;
+      const dt = (now - lastTS) / 1000;
       lastTS = now;
 
       // Filtre gravité
@@ -209,23 +231,39 @@
       const mag = Math.sqrt(lx*lx + ly*ly + lz*lz);
       smoothMagnitude = magSmoothAlpha*smoothMagnitude + (1-magSmoothAlpha)*mag;
 
-      // Détection du type de secousse
-      if (smoothMagnitude >= FAST_SHAKE_MIN) {
-        // Secousse rapide
-        if (currentMode !== 'fast_shake') {
-          startFastShake();
-          if (navigator.vibrate) navigator.vibrate(100);
+      // Garder un historique pour calculer la "fluidité"
+      magnitudeHistory.push(smoothMagnitude);
+      if (magnitudeHistory.length > HISTORY_SIZE) {
+        magnitudeHistory.shift();
+      }
+
+      // Calculer la "saccade" (variance des changements)
+      if (magnitudeHistory.length >= 3) {
+        let variations = 0;
+        for (let i = 1; i < magnitudeHistory.length - 1; i++) {
+          const change1 = Math.abs(magnitudeHistory[i] - magnitudeHistory[i-1]);
+          const change2 = Math.abs(magnitudeHistory[i+1] - magnitudeHistory[i]);
+          variations += Math.abs(change2 - change1);
+        }
+        jerkiness = variations / (magnitudeHistory.length - 2);
+      }
+
+      // Détection du type de mouvement
+      if (smoothMagnitude > MIN_MOVEMENT) {
+        if (jerkiness > JERKINESS_THRESHOLD) {
+          // Mouvement saccadé
+          if (currentMode !== 'jerky') {
+            startJerkyMode();
+            if (navigator.vibrate) navigator.vibrate(100);
+          }
+        } else {
+          // Mouvement fluide
+          if (currentMode !== 'smooth') {
+            startSmoothMode();
+            if (navigator.vibrate) navigator.vibrate(50);
+          }
         }
         resetModeTimeout();
-
-      } else if (smoothMagnitude >= SLOW_SHAKE_MIN && smoothMagnitude < SLOW_SHAKE_MAX) {
-        // Secousse lente
-        if (currentMode !== 'slow_shake') {
-          startSlowShake();
-          if (navigator.vibrate) navigator.vibrate(50);
-        }
-        resetModeTimeout();
-
       } else {
         // Pas assez de mouvement
         if (currentMode !== 'idle') {
@@ -238,46 +276,46 @@
       clearTimeout(modeTimeout);
       modeTimeout = setTimeout(() => {
         stopAllModes();
-      }, 600); // Arrêt après 600ms sans mouvement suffisant
+      }, 700); // Arrêt après 700ms sans mouvement suffisant
     }
 
-    function startSlowShake() {
-      if (currentMode === 'slow_shake') return;
+    function startSmoothMode() {
+      if (currentMode === 'smooth') return;
 
       stopAllModes();
-      currentMode = 'slow_shake';
+      currentMode = 'smooth';
 
-      // Flash rapide arc-en-ciel continu (jamais de blanc)
+      // Flash arc-en-ciel rapide et continu (jamais de blanc)
       flashInterval = setInterval(() => {
         container.style.backgroundColor = rainbowColors[colorIndex];
         colorIndex = (colorIndex + 1) % rainbowColors.length;
-      }, 80); // Flash très rapide (80ms)
+      }, 60); // Flash très rapide (60ms)
     }
 
-    function startFastShake() {
-      if (currentMode === 'fast_shake') return;
+    function startJerkyMode() {
+      if (currentMode === 'jerky') return;
 
       stopAllModes();
-      currentMode = 'fast_shake';
-      fastShakeStartTime = Date.now();
-      fastShakeStep = 0;
+      currentMode = 'jerky';
+      jerkyStartTime = Date.now();
+      jerkyStep = 0;
 
-      // Progression lente toutes les secondes
-      updateFastShakeProgression();
-      progressionInterval = setInterval(updateFastShakeProgression, 1000);
+      // Progression toutes les 0.5 secondes
+      updateJerkyProgression();
+      progressionInterval = setInterval(updateJerkyProgression, 500);
     }
 
-    function updateFastShakeProgression() {
-      if (currentMode !== 'fast_shake') return;
+    function updateJerkyProgression() {
+      if (currentMode !== 'jerky') return;
 
-      const elapsed = Math.floor((Date.now() - fastShakeStartTime) / 1000);
-      const step = Math.min(elapsed, fastShakeColors.length - 1);
+      const elapsed = Math.floor((Date.now() - jerkyStartTime) / 500); // Étapes de 0.5s
+      const step = Math.min(elapsed, jerkyColors.length - 1);
 
-      container.style.backgroundColor = fastShakeColors[step];
-      fastShakeStep = step;
+      container.style.backgroundColor = jerkyColors[step];
+      jerkyStep = step;
 
       // Si on atteint le blanc, on y reste
-      if (step >= fastShakeColors.length - 1) {
+      if (step >= jerkyColors.length - 1) {
         clearInterval(progressionInterval);
         progressionInterval = null;
       }
@@ -310,7 +348,7 @@
     // Nettoyage périodique
     setInterval(() => {
       if (!running) return;
-      if (currentMode === 'idle' && smoothMagnitude < SLOW_SHAKE_MIN * 0.5) {
+      if (currentMode === 'idle' && smoothMagnitude < MIN_MOVEMENT * 0.5) {
         container.style.backgroundColor = '#333333';
       }
     }, 500);
