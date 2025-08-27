@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shake Color App</title>
+
+    <!-- PWA Meta tags -->
+    <meta name="theme-color" content="#333333">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Shake Color">
+
+    <!-- Manifest -->
+    <link rel="manifest" href="manifest.json">
+
+    <!-- Icons -->
+    <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+    <link rel="apple-touch-icon" href="icon-192.png">
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+            background-color: #333333;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            overflow: hidden;
+            touch-action: manipulation;
+            user-select: none;
+        }
+
+        .container {
+            width: 100vw;
+            height: 100vh;
+            background-color: #333333;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            transition: background-color 0.2s ease;
+            position: relative;
+        }
+
+        .info {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            right: 20px;
+            color: white;
+            text-align: center;
+            font-size: 16px;
+            background: rgba(0,0,0,0.8);
+            padding: 15px;
+            border-radius: 15px;
+            z-index: 100;
+            backdrop-filter: blur(10px);
+        }
+
+        .start-button {
+            background: linear-gradient(45deg, #00ff00, #00cc00);
+            color: black;
+            border: none;
+            padding: 25px 50px;
+            font-size: 20px;
+            border-radius: 15px;
+            cursor: pointer;
+            margin: 20px;
+            font-weight: bold;
+            box-shadow: 0 4px 15px rgba(0,255,0,0.3);
+            transition: all 0.3s ease;
+        }
+
+        .start-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,255,0,0.4);
+        }
+
+        .status {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: white;
+            font-size: 18px;
+            background: rgba(0,0,0,0.8);
+            padding: 15px 25px;
+            border-radius: 25px;
+            backdrop-filter: blur(10px);
+            min-width: 200px;
+            text-align: center;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .install-prompt {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.9);
+            color: white;
+            padding: 20px;
+            border-radius: 15px;
+            text-align: center;
+            z-index: 200;
+        }
+
+        .install-button {
+            background: #007AFF;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            margin: 10px 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        .close-button {
+            background: #666;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            margin: 10px 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        @media (max-width: 480px) {
+            .info {
+                font-size: 14px;
+                padding: 12px;
+            }
+
+            .start-button {
+                padding: 20px 40px;
+                font-size: 18px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container" id="container">
+        <div class="info">
+            <p><strong>🎨 Shake Color App</strong></p>
+            <p>Secouez votre téléphone pour changer les couleurs !</p>
+            <p>🟢 Lent = Arc-en-ciel progressif</p>
+            <p>🔴 Rapide = Gris → Vert → Rouge → Jaune → Blanc</p>
+        </div>
+
+        <button class="start-button" id="startBtn" onclick="startApp()">
+            🚀 DÉMARRER L'APP
+        </button>
+
+        <div class="status hidden" id="status">
+            Prêt - Secouez votre téléphone !
+        </div>
+    </div>
+
+    <!-- Install prompt -->
+    <div class="install-prompt hidden" id="installPrompt">
+        <h3>📱 Installer l'App</h3>
+        <p>Ajoutez cette app à votre écran d'accueil pour une meilleure expérience !</p>
+        <button class="install-button" id="installBtn">Installer</button>
+        <button class="close-button" id="closeInstall">Plus tard</button>
+    </div>
+
+    <script>
+        let isActive = false;
+        let shakeIntensity = 0;
+        let lastUpdate = 0;
+        let x = 0, y = 0, z = 0;
+        let lastX = 0, lastY = 0, lastZ = 0;
+        let deferredPrompt;
+
+        const container = document.getElementById('container');
+        const startBtn = document.getElementById('startBtn');
+        const status = document.getElementById('status');
+        const installPrompt = document.getElementById('installPrompt');
+        const installBtn = document.getElementById('installBtn');
+        const closeInstall = document.getElementById('closeInstall');
+
+        // Couleurs pour différentes intensités
+        const colors = {
+            default: '#333333',
+            green: '#00ff00',
+            rainbow: [
+                '#ff0000', '#ff4500', '#ffa500', '#ffff00', 
+                '#9aff9a', '#00ff00', '#00ffff', '#0080ff', 
+                '#0000ff', '#8000ff', '#ff00ff', '#ff1493'
+            ],
+            sequence: ['#333333', '#00ff00', '#ff0000', '#ffff00', '#ffffff']
+        };
+
+        // PWA Installation
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            setTimeout(() => {
+                if (!localStorage.getItem('installPromptShown')) {
+                    installPrompt.classList.remove('hidden');
+                }
+            }, 3000);
+        });
+
+        installBtn.addEventListener('click', async () => {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                const { outcome } = await deferredPrompt.userChoice;
+                deferredPrompt = null;
+            }
+            installPrompt.classList.add('hidden');
+            localStorage.setItem('installPromptShown', 'true');
+        });
+
+        closeInstall.addEventListener('click', () => {
+            installPrompt.classList.add('hidden');
+            localStorage.setItem('installPromptShown', 'true');
+        });
+
+        // Service Worker Registration
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js')
+                    .then(registration => console.log('SW registered'))
+                    .catch(error => console.log('SW registration failed'));
+            });
+        }
+
+        function startApp() {
+            startBtn.classList.add('hidden');
+            status.classList.remove('hidden');
+            isActive = true;
+
+            // Vibration feedback si disponible
+            if (navigator.vibrate) {
+                navigator.vibrate(100);
+            }
+
+            // Essayer d'accéder à l'accéléromètre
+            if (window.DeviceMotionEvent) {
+                if (typeof DeviceMotionEvent.requestPermission === 'function') {
+                    DeviceMotionEvent.requestPermission()
+                        .then(response => {
+                            if (response === 'granted') {
+                                initializeMotion();
+                            } else {
+                                fallbackToTouch();
+                            }
+                        })
+                        .catch(() => fallbackToTouch());
+                } else {
+                    initializeMotion();
+                }
+            } else {
+                fallbackToTouch();
+            }
+        }
+
+        function initializeMotion() {
+            window.addEventListener('devicemotion', handleMotion, { passive: false });
+            status.textContent = '📱 Capteur activé - Secouez !';
+        }
+
+        function handleMotion(event) {
+            if (!isActive) return;
+
+            const currentTime = new Date().getTime();
+            if ((currentTime - lastUpdate) > 50) {
+
+                const accel = event.accelerationIncludingGravity;
+                if (accel) {
+                    x = accel.x || 0;
+                    y = accel.y || 0;
+                    z = accel.z || 0;
+
+                    const deltaX = Math.abs(x - lastX);
+                    const deltaY = Math.abs(y - lastY);
+                    const deltaZ = Math.abs(z - lastZ);
+
+                    const shake = deltaX + deltaY + deltaZ;
+
+                    if (shake > 5) {
+                        shakeIntensity = Math.min(shake, 30);
+                        updateColor();
+                        status.textContent = `🎨 Intensité: ${Math.round(shakeIntensity)}`;
+
+                        // Vibration proportionnelle à l'intensité
+                        if (navigator.vibrate && shake > 10) {
+                            navigator.vibrate(Math.min(shake * 5, 200));
+                        }
+                    }
+
+                    lastX = x;
+                    lastY = y;
+                    lastZ = z;
+                    lastUpdate = currentTime;
+                }
+            }
+
+            // Réduire l'intensité progressivement
+            setTimeout(() => {
+                shakeIntensity *= 0.9;
+                if (shakeIntensity < 1) {
+                    container.style.backgroundColor = colors.default;
+                    if (isActive) status.textContent = '📱 Prêt - Secouez votre téléphone !';
+                }
+            }, 200);
+        }
+
+        function updateColor() {
+            let newColor = colors.default;
+
+            if (shakeIntensity < 8) {
+                // Secousse lente - arc-en-ciel
+                if (shakeIntensity > 2) {
+                    const colorIndex = Math.floor((shakeIntensity - 2) / 0.6) % colors.rainbow.length;
+                    newColor = colors.rainbow[colorIndex];
+                } else {
+                    newColor = colors.green;
+                }
+            } else {
+                // Secousse rapide - séquence
+                const sequenceIndex = Math.min(Math.floor(shakeIntensity / 6), colors.sequence.length - 1);
+                newColor = colors.sequence[sequenceIndex];
+            }
+
+            container.style.backgroundColor = newColor;
+        }
+
+        function fallbackToTouch() {
+            status.textContent = '👆 Mode tactile - Tapez rapidement !';
+            let tapCount = 0;
+            let tapTimer;
+
+            container.addEventListener('touchstart', function(e) {
+                e.preventDefault();
+                tapCount++;
+
+                if (navigator.vibrate) {
+                    navigator.vibrate(50);
+                }
+
+                clearTimeout(tapTimer);
+                tapTimer = setTimeout(() => {
+                    shakeIntensity = Math.min(tapCount * 3, 25);
+                    updateColor();
+                    status.textContent = `👆 Taps: ${tapCount} - Intensité: ${Math.round(shakeIntensity)}`;
+
+                    setTimeout(() => {
+                        container.style.backgroundColor = colors.default;
+                        status.textContent = '👆 Mode tactile - Tapez rapidement !';
+                    }, 1000);
+
+                    tapCount = 0;
+                }, 500);
+            }, { passive: false });
+        }
+
+        // Empêcher le zoom et le scroll
+        document.addEventListener('touchmove', function(e) {
+            e.preventDefault();
+        }, { passive: false });
+
+        document.addEventListener('gesturestart', function(e) {
+            e.preventDefault();
+        });
+
+        // Gestion du plein écran
+        document.addEventListener('dblclick', function() {
+            if (document.fullscreenElement) {
+                document.exitFullscreen();
+            } else {
+                document.documentElement.requestFullscreen();
+            }
+        });
+    </script>
+</body>
+</html>
