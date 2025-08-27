@@ -1,7 +1,7 @@
 {
   "name": "Shake Color App",
   "short_name": "ShakeColor",
-  "description": "Application qui change de couleur quand vous secouez votre téléphone",
+  "description": "App qui change de couleur selon le mouvement lent et la fréquence des secousses",
   "start_url": "./index.html",
   "display": "fullscreen",
   "background_color": "#333333",
@@ -12,18 +12,14 @@
       "src": "icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "maskable any"
     },
     {
       "src": "icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "maskable any"
     }
-  ],
-  "categories": [
-    "entertainment",
-    "utilities"
   ],
   "lang": "fr"
 }

@@ -1,388 +1,267 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Shake Color App</title>
-
-    <!-- PWA Meta tags -->
-    <meta name="theme-color" content="#333333">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="Shake Color">
-
-    <!-- Manifest -->
-    <link rel="manifest" href="manifest.json">
-
-    <!-- Icons -->
-    <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
-    <link rel="apple-touch-icon" href="icon-192.png">
-
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        html, body {
-            width: 100%;
-            height: 100%;
-            background-color: #333333;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            overflow: hidden;
-            touch-action: manipulation;
-            user-select: none;
-        }
-
-        .container {
-            width: 100vw;
-            height: 100vh;
-            background-color: #333333;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            transition: background-color 0.2s ease;
-            position: relative;
-        }
-
-        .info {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            right: 20px;
-            color: white;
-            text-align: center;
-            font-size: 16px;
-            background: rgba(0,0,0,0.8);
-            padding: 15px;
-            border-radius: 15px;
-            z-index: 100;
-            backdrop-filter: blur(10px);
-        }
-
-        .start-button {
-            background: linear-gradient(45deg, #00ff00, #00cc00);
-            color: black;
-            border: none;
-            padding: 25px 50px;
-            font-size: 20px;
-            border-radius: 15px;
-            cursor: pointer;
-            margin: 20px;
-            font-weight: bold;
-            box-shadow: 0 4px 15px rgba(0,255,0,0.3);
-            transition: all 0.3s ease;
-        }
-
-        .start-button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(0,255,0,0.4);
-        }
-
-        .status {
-            position: absolute;
-            bottom: 30px;
-            left: 50%;
-            transform: translateX(-50%);
-            color: white;
-            font-size: 18px;
-            background: rgba(0,0,0,0.8);
-            padding: 15px 25px;
-            border-radius: 25px;
-            backdrop-filter: blur(10px);
-            min-width: 200px;
-            text-align: center;
-        }
-
-        .hidden {
-            display: none;
-        }
-
-        .install-prompt {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: rgba(0,0,0,0.9);
-            color: white;
-            padding: 20px;
-            border-radius: 15px;
-            text-align: center;
-            z-index: 200;
-        }
-
-        .install-button {
-            background: #007AFF;
-            color: white;
-            border: none;
-            padding: 12px 24px;
-            border-radius: 8px;
-            margin: 10px 5px;
-            cursor: pointer;
-            font-size: 16px;
-        }
-
-        .close-button {
-            background: #666;
-            color: white;
-            border: none;
-            padding: 12px 24px;
-            border-radius: 8px;
-            margin: 10px 5px;
-            cursor: pointer;
-            font-size: 16px;
-        }
-
-        @media (max-width: 480px) {
-            .info {
-                font-size: 14px;
-                padding: 12px;
-            }
-
-            .start-button {
-                padding: 20px 40px;
-                font-size: 18px;
-            }
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Shake Color App</title>
+  <meta name="theme-color" content="#333333" />
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Shake Color">
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <style>
+    html, body { height: 100%; margin: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #333;
+      color: #fff;
+      overflow: hidden;
+      touch-action: manipulation;
+      user-select: none;
+      transition: background-color .15s linear;
+    }
+    .container {
+      width: 100vw; height: 100vh; position: relative;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .start {
+      position: absolute; z-index: 10; top: 50%; left: 50%; transform: translate(-50%,-50%);
+      background: #00d867; color: #000; font-weight: 700; border: 0; border-radius: 14px;
+      padding: 18px 26px; font-size: 18px; box-shadow: 0 8px 30px rgba(0,216,103,.3);
+      cursor: pointer;
+    }
+    .panel {
+      position: absolute; left: 12px; right: 12px; top: 12px;
+      background: rgba(0,0,0,.45); border-radius: 14px; padding: 12px; text-align: center;
+      font-size: 14px; line-height: 1.35; backdrop-filter: blur(8px);
+    }
+    .status {
+      position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%);
+      background: rgba(0,0,0,.45); border-radius: 22px; padding: 10px 16px; backdrop-filter: blur(8px);
+      font-size: 14px; min-width: 260px; text-align: center;
+    }
+    .row { display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-top:6px; }
+    .pill { background: rgba(255,255,255,.12); padding: 6px 10px; border-radius: 999px; font-variant-numeric: tabular-nums; }
+    .hide{ display:none; }
+  </style>
 </head>
 <body>
-    <div class="container" id="container">
-        <div class="info">
-            <p><strong>🎨 Shake Color App</strong></p>
-            <p>Secouez votre téléphone pour changer les couleurs !</p>
-            <p>🟢 Lent = Arc-en-ciel progressif</p>
-            <p>🔴 Rapide = Gris → Vert → Rouge → Jaune → Blanc</p>
-        </div>
-
-        <button class="start-button" id="startBtn" onclick="startApp()">
-            🚀 DÉMARRER L'APP
-        </button>
-
-        <div class="status hidden" id="status">
-            Prêt - Secouez votre téléphone !
-        </div>
+  <div class="container" id="container">
+    <div class="panel">
+      <div><b>🎨 Shake Color App</b></div>
+      <div>• Mouvement lent: arc-en-ciel fluide</div>
+      <div>• Secousses: la <b>fréquence</b> transforme la couleur</div>
+      <div class="row">
+        <span class="pill">Sensibilité optimisée</span>
+        <span class="pill">Détection de pics</span>
+        <span class="pill">Fenêtre glissante</span>
+      </div>
     </div>
+    <button class="start" id="startBtn">Démarrer</button>
+    <div class="status hide" id="status">Prêt</div>
+  </div>
 
-    <!-- Install prompt -->
-    <div class="install-prompt hidden" id="installPrompt">
-        <h3>📱 Installer l'App</h3>
-        <p>Ajoutez cette app à votre écran d'accueil pour une meilleure expérience !</p>
-        <button class="install-button" id="installBtn">Installer</button>
-        <button class="close-button" id="closeInstall">Plus tard</button>
-    </div>
+  <script>
+    const container = document.getElementById('container');
+    const startBtn = document.getElementById('startBtn');
+    const statusEl = document.getElementById('status');
 
-    <script>
-        let isActive = false;
-        let shakeIntensity = 0;
-        let lastUpdate = 0;
-        let x = 0, y = 0, z = 0;
-        let lastX = 0, lastY = 0, lastZ = 0;
-        let deferredPrompt;
+    let running = false;
+    let lastTS = 0;
 
-        const container = document.getElementById('container');
-        const startBtn = document.getElementById('startBtn');
-        const status = document.getElementById('status');
-        const installPrompt = document.getElementById('installPrompt');
-        const installBtn = document.getElementById('installBtn');
-        const closeInstall = document.getElementById('closeInstall');
+    // Estimation de la gravité (LPF) et accélération linéaire
+    const gravity = { x: 0, y: 0, z: 0 };
+    const alpha = 0.9; // lissage gravité
 
-        // Couleurs pour différentes intensités
-        const colors = {
-            default: '#333333',
-            green: '#00ff00',
-            rainbow: [
-                '#ff0000', '#ff4500', '#ffa500', '#ffff00', 
-                '#9aff9a', '#00ff00', '#00ffff', '#0080ff', 
-                '#0000ff', '#8000ff', '#ff00ff', '#ff1493'
-            ],
-            sequence: ['#333333', '#00ff00', '#ff0000', '#ffff00', '#ffffff']
-        };
+    // Lissage pour l'énergie de mouvement
+    let smoothMagnitude = 0;
+    const magSmoothAlpha = 0.7;
 
-        // PWA Installation
-        window.addEventListener('beforeinstallprompt', (e) => {
-            e.preventDefault();
-            deferredPrompt = e;
-            setTimeout(() => {
-                if (!localStorage.getItem('installPromptShown')) {
-                    installPrompt.classList.remove('hidden');
-                }
-            }, 3000);
-        });
+    // Détection de secousses (pics)
+    const SHAKE_PEAK_THRESHOLD = 2.8; // ↑ moins sensible
+    const MIN_PEAK_INTERVAL = 300;    // ms, ↑ évite double comptage
+    let lastPeakTime = 0;
 
-        installBtn.addEventListener('click', async () => {
-            if (deferredPrompt) {
-                deferredPrompt.prompt();
-                const { outcome } = await deferredPrompt.userChoice;
-                deferredPrompt = null;
-            }
-            installPrompt.classList.add('hidden');
-            localStorage.setItem('installPromptShown', 'true');
-        });
+    // Fenêtre glissante
+    const WINDOW_MS = 5000; // 5s
+    let shakeTimes = [];
 
-        closeInstall.addEventListener('click', () => {
-            installPrompt.classList.add('hidden');
-            localStorage.setItem('installPromptShown', 'true');
-        });
+    // Plage de "mouvement lent" (entre immobile et fort)
+    const SLOW_MOVE_LOW = 0.20;  // ↑ ignore micro-mouvements
+    const SLOW_MOVE_HIGH = 1.20; // ↑ seuil haut du lent
 
-        // Service Worker Registration
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('sw.js')
-                    .then(registration => console.log('SW registered'))
-                    .catch(error => console.log('SW registration failed'));
-            });
+    // Couleurs
+    const COLORS = {
+      green: [0, 255, 0],
+      red: [255, 0, 0],
+      yellow: [255, 255, 0],
+      white: [255, 255, 255],
+    };
+
+    function lerp(a,b,t){ return a + (b-a)*t; }
+    function lerpColor(c1, c2, t){
+      return `rgb(${Math.round(lerp(c1[0], c2[0], t))}, ${Math.round(lerp(c1[1], c2[1], t))}, ${Math.round(lerp(c1[2], c2[2], t))})`;
+    }
+
+    // Palette green -> red -> yellow -> white selon la fréquence des secousses
+    function colorFromProgress(p){
+      const stops = [COLORS.green, COLORS.red, COLORS.yellow, COLORS.white];
+      const n = stops.length - 1;
+      const x = Math.max(0, Math.min(1, p)) * n;
+      const i = Math.floor(x);
+      const t = x - i;
+      return lerpColor(stops[i], stops[i+1] || stops[n], t);
+    }
+
+    // Arc-en-ciel pour mouvement lent (hue cyclique)
+    function rainbowSlow(t, strength){
+      const hue = (t * (20 + 100*strength)) % 360;
+      const light = 40 + Math.round(30*strength);
+      return `hsl(${Math.round(hue)}, 100%, ${light}%)`;
+    }
+
+    function start(){
+      startBtn.classList.add('hide');
+      statusEl.classList.remove('hide');
+      running = true;
+      if (navigator.vibrate) navigator.vibrate(60);
+
+      if (window.DeviceMotionEvent) {
+        if (typeof DeviceMotionEvent.requestPermission === 'function') {
+          DeviceMotionEvent.requestPermission().then(state => {
+            if (state === 'granted') attachMotion(); else enableTouchFallback();
+          }).catch(enableTouchFallback);
+        } else {
+          attachMotion();
         }
+      } else {
+        enableTouchFallback();
+      }
+    }
 
-        function startApp() {
-            startBtn.classList.add('hidden');
-            status.classList.remove('hidden');
-            isActive = true;
+    function attachMotion(){
+      window.addEventListener('devicemotion', onMotion, {passive: true});
+      statusEl.textContent = 'Capteur actif – secouez ou bougez lentement';
+    }
 
-            // Vibration feedback si disponible
-            if (navigator.vibrate) {
-                navigator.vibrate(100);
-            }
+    function enableTouchFallback(){
+      statusEl.textContent = 'Mode tactile: tapotez pour simuler des secousses';
+      let taps = 0; let timer;
+      container.addEventListener('touchstart', () => {
+        taps++;
+        clearTimeout(timer);
+        timer = setTimeout(()=>{
+          const now = Date.now();
+          for (let i=0;i<taps;i++) shakeTimes.push(now);
+          pruneWindow();
+          updateByShakes(now);
+          taps = 0;
+        }, 300);
+      }, {passive:true});
+    }
 
-            // Essayer d'accéder à l'accéléromètre
-            if (window.DeviceMotionEvent) {
-                if (typeof DeviceMotionEvent.requestPermission === 'function') {
-                    DeviceMotionEvent.requestPermission()
-                        .then(response => {
-                            if (response === 'granted') {
-                                initializeMotion();
-                            } else {
-                                fallbackToTouch();
-                            }
-                        })
-                        .catch(() => fallbackToTouch());
-                } else {
-                    initializeMotion();
-                }
-            } else {
-                fallbackToTouch();
-            }
+    function onMotion(e){
+      const a = e.accelerationIncludingGravity || e.acceleration;
+      if (!a) return;
+
+      const now = e.timeStamp ? e.timeStamp : performance.now();
+      if (!lastTS) lastTS = now;
+      lastTS = now;
+
+      // Filtre gravité et accélération linéaire
+      gravity.x = alpha*gravity.x + (1-alpha)*(a.x||0);
+      gravity.y = alpha*gravity.y + (1-alpha)*(a.y||0);
+      gravity.z = alpha*gravity.z + (1-alpha)*(a.z||0);
+
+      const lx = (a.x||0) - gravity.x;
+      const ly = (a.y||0) - gravity.y;
+      const lz = (a.z||0) - gravity.z;
+
+      const mag = Math.sqrt(lx*lx + ly*ly + lz*lz);
+
+      // Lissage magnitude
+      smoothMagnitude = magSmoothAlpha*smoothMagnitude + (1-magSmoothAlpha)*mag;
+
+      // Détection de pics (secousses)
+      const nowMs = performance.now();
+      if (smoothMagnitude > SHAKE_PEAK_THRESHOLD && (nowMs - lastPeakTime) > MIN_PEAK_INTERVAL){
+        lastPeakTime = nowMs;
+        shakeTimes.push(nowMs);
+        if (navigator.vibrate) navigator.vibrate(8);
+      }
+
+      pruneWindow();
+      updateColor(nowMs);
+    }
+
+    function pruneWindow(){
+      const cutoff = performance.now() - WINDOW_MS;
+      while (shakeTimes.length && shakeTimes[0] < cutoff) shakeTimes.shift();
+    }
+
+    function shakesRate(){
+      // normalise le nombre de secousses (5s)
+      const count = shakeTimes.length;
+      const MAX_SHAKES = 16; // ~3.2 Hz saturé
+      return Math.max(0, Math.min(1, count / MAX_SHAKES));
+    }
+
+    function updateColor(nowMs){
+      const rate = shakesRate();
+
+      if (rate < 0.15) {
+        // Mouvement lent -> arc-en-ciel
+        if (smoothMagnitude > SLOW_MOVE_LOW && smoothMagnitude < SLOW_MOVE_HIGH) {
+          const slowStrength = Math.max(0, Math.min(1, (smoothMagnitude - SLOW_MOVE_LOW) / (SLOW_MOVE_HIGH - SLOW_MOVE_LOW)));
+          const color = rainbowSlow(nowMs/1000, slowStrength);
+          container.style.backgroundColor = color;
+          statusEl.textContent = `Mouvement lent · intensité ${slowStrength.toFixed(2)} · arc-en-ciel`;
+        } else if (smoothMagnitude >= SLOW_MOVE_HIGH) {
+          container.style.backgroundColor = 'hsl(80, 100%, 55%)';
+          statusEl.textContent = 'Mouvement fort continu';
+        } else {
+          container.style.backgroundColor = 'rgb(51,51,51)';
+          statusEl.textContent = 'Immobilité';
         }
+      } else {
+        // Secousses -> progression par fréquence
+        const color = colorFromProgress(rate);
+        container.style.backgroundColor = color;
+        statusEl.textContent = `Secousses: ${shakeTimes.length} / 5s · progression ${(rate*100)|0}%`;
+      }
+    }
 
-        function initializeMotion() {
-            window.addEventListener('devicemotion', handleMotion, { passive: false });
-            status.textContent = '📱 Capteur activé - Secouez !';
-        }
+    function updateByShakes(){
+      const rate = shakesRate();
+      if (rate <= 0) {
+        container.style.backgroundColor = 'rgb(51,51,51)';
+        statusEl.textContent = 'Immobilité (tactile)';
+      } else {
+        container.style.backgroundColor = colorFromProgress(rate);
+        statusEl.textContent = `Secousses (tactile): ${shakeTimes.length} / 5s`;
+      }
+    }
 
-        function handleMotion(event) {
-            if (!isActive) return;
+    // Démarrage
+    startBtn.addEventListener('click', start, {passive:true});
 
-            const currentTime = new Date().getTime();
-            if ((currentTime - lastUpdate) > 50) {
+    // Tendance vers gris au repos
+    setInterval(()=>{
+      if (!running) return;
+      if (shakeTimes.length === 0 && smoothMagnitude < SLOW_MOVE_LOW*0.8) {
+        container.style.backgroundColor = 'rgb(51,51,51)';
+        statusEl.textContent = 'Repos';
+      }
+    }, 500);
 
-                const accel = event.accelerationIncludingGravity;
-                if (accel) {
-                    x = accel.x || 0;
-                    y = accel.y || 0;
-                    z = accel.z || 0;
-
-                    const deltaX = Math.abs(x - lastX);
-                    const deltaY = Math.abs(y - lastY);
-                    const deltaZ = Math.abs(z - lastZ);
-
-                    const shake = deltaX + deltaY + deltaZ;
-
-                    if (shake > 5) {
-                        shakeIntensity = Math.min(shake, 30);
-                        updateColor();
-                        status.textContent = `🎨 Intensité: ${Math.round(shakeIntensity)}`;
-
-                        // Vibration proportionnelle à l'intensité
-                        if (navigator.vibrate && shake > 10) {
-                            navigator.vibrate(Math.min(shake * 5, 200));
-                        }
-                    }
-
-                    lastX = x;
-                    lastY = y;
-                    lastZ = z;
-                    lastUpdate = currentTime;
-                }
-            }
-
-            // Réduire l'intensité progressivement
-            setTimeout(() => {
-                shakeIntensity *= 0.9;
-                if (shakeIntensity < 1) {
-                    container.style.backgroundColor = colors.default;
-                    if (isActive) status.textContent = '📱 Prêt - Secouez votre téléphone !';
-                }
-            }, 200);
-        }
-
-        function updateColor() {
-            let newColor = colors.default;
-
-            if (shakeIntensity < 8) {
-                // Secousse lente - arc-en-ciel
-                if (shakeIntensity > 2) {
-                    const colorIndex = Math.floor((shakeIntensity - 2) / 0.6) % colors.rainbow.length;
-                    newColor = colors.rainbow[colorIndex];
-                } else {
-                    newColor = colors.green;
-                }
-            } else {
-                // Secousse rapide - séquence
-                const sequenceIndex = Math.min(Math.floor(shakeIntensity / 6), colors.sequence.length - 1);
-                newColor = colors.sequence[sequenceIndex];
-            }
-
-            container.style.backgroundColor = newColor;
-        }
-
-        function fallbackToTouch() {
-            status.textContent = '👆 Mode tactile - Tapez rapidement !';
-            let tapCount = 0;
-            let tapTimer;
-
-            container.addEventListener('touchstart', function(e) {
-                e.preventDefault();
-                tapCount++;
-
-                if (navigator.vibrate) {
-                    navigator.vibrate(50);
-                }
-
-                clearTimeout(tapTimer);
-                tapTimer = setTimeout(() => {
-                    shakeIntensity = Math.min(tapCount * 3, 25);
-                    updateColor();
-                    status.textContent = `👆 Taps: ${tapCount} - Intensité: ${Math.round(shakeIntensity)}`;
-
-                    setTimeout(() => {
-                        container.style.backgroundColor = colors.default;
-                        status.textContent = '👆 Mode tactile - Tapez rapidement !';
-                    }, 1000);
-
-                    tapCount = 0;
-                }, 500);
-            }, { passive: false });
-        }
-
-        // Empêcher le zoom et le scroll
-        document.addEventListener('touchmove', function(e) {
-            e.preventDefault();
-        }, { passive: false });
-
-        document.addEventListener('gesturestart', function(e) {
-            e.preventDefault();
-        });
-
-        // Gestion du plein écran
-        document.addEventListener('dblclick', function() {
-            if (document.fullscreenElement) {
-                document.exitFullscreen();
-            } else {
-                document.documentElement.requestFullscreen();
-            }
-        });
-    </script>
+    // PWA - enregistrement du Service Worker
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js');
+      });
+    }
+  </script>
 </body>
 </html>
