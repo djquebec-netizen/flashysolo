@@ -99,27 +99,38 @@
     let running = false;
     let lastTS = 0;
     let flashInterval = null;
+    let progressionInterval = null;
 
-    // Estimation gravité avec plus de lissage
+    // Estimation gravité
     const gravity = { x: 0, y: 0, z: 0 };
-    const alpha = 0.95; // ↑ Plus de lissage = moins sensible
+    const alpha = 0.92;
 
-    // Lissage magnitude avec plus de stabilité
+    // Lissage magnitude
     let smoothMagnitude = 0;
-    const magSmoothAlpha = 0.8; // ↑ Plus de lissage
+    const magSmoothAlpha = 0.75;
 
-    // Seuils beaucoup plus élevés
-    const SLOW_MOVE_THRESHOLD = 1.2; // ↑ Il faut vraiment bouger pour déclencher
-    const SHAKE_THRESHOLD = 4.5; // ↑ Secousse forte nécessaire
+    // Seuils pour différencier lent/rapide
+    const SLOW_SHAKE_MIN = 1.5;  // Secousse lente minimum
+    const SLOW_SHAKE_MAX = 3.5;  // Secousse lente maximum
+    const FAST_SHAKE_MIN = 3.5;  // Secousse rapide minimum
 
-    // Système de progression pour les secousses (5-8 secondes)
-    let shakeIntensity = 0;
-    let shakeStartTime = 0;
-    let isShaking = false;
-    let shakeTimeout = null;
+    // États
+    let currentMode = 'idle'; // 'idle', 'slow_shake', 'fast_shake'
+    let modeTimeout = null;
+    let fastShakeStartTime = 0;
+    let fastShakeStep = 0;
 
-    // Progression des couleurs sur 6 secondes
-    const shakeColors = [
+    // Couleurs arc-en-ciel pour flash rapide
+    const rainbowColors = [
+      '#ff0000', '#ff4500', '#ffa500', '#ffff00', 
+      '#9aff9a', '#00ff00', '#00ffff', '#0080ff', 
+      '#0000ff', '#8000ff', '#ff00ff', '#ff1493',
+      '#ff6347', '#32cd32', '#1e90ff', '#da70d6'
+    ];
+    let colorIndex = 0;
+
+    // Progression pour secousse rapide (toutes les secondes)
+    const fastShakeColors = [
       '#333333', // gris (0s)
       '#00ff00', // vert (1s)
       '#ffff00', // jaune (2s)
@@ -128,14 +139,6 @@
       '#ff0000', // rouge (5s)
       '#ffffff'  // blanc (6s)
     ];
-
-    // Couleurs arc-en-ciel pour le flash
-    const rainbowColors = [
-      '#ff0000', '#ff4500', '#ffa500', '#ffff00', 
-      '#9aff9a', '#00ff00', '#00ffff', '#0080ff', 
-      '#0000ff', '#8000ff', '#ff00ff', '#ff1493'
-    ];
-    let colorIndex = 0;
 
     function start(){
       startBtn.classList.add('hide');
@@ -172,28 +175,16 @@
 
         clearTimeout(tapTimer);
         tapTimer = setTimeout(() => {
-          if (tapCount === 1) {
-            // Tap simple = mouvement lent
-            triggerSlowMovement();
+          if (tapCount >= 1 && tapCount <= 2) {
+            // 1-2 taps = secousse lente
+            startSlowShake();
           } else if (tapCount >= 3) {
-            // Triple tap ou plus = secousse
-            triggerShake();
+            // 3+ taps = secousse rapide
+            startFastShake();
           }
           tapCount = 0;
         }, 400);
       }, {passive: false});
-    }
-
-    function triggerSlowMovement() {
-      if (!isShaking) {
-        startRainbowFlash();
-        setTimeout(stopRainbowFlash, 2000); // Flash pendant 2s
-      }
-    }
-
-    function triggerShake() {
-      startShakeSequence();
-      if (navigator.vibrate) navigator.vibrate(100);
     }
 
     function onMotion(e){
@@ -204,10 +195,9 @@
 
       const now = e.timeStamp ? e.timeStamp : performance.now();
       if (!lastTS) lastTS = now;
-      const dt = (now - lastTS) / 1000;
       lastTS = now;
 
-      // Filtre gravité avec plus de lissage
+      // Filtre gravité
       gravity.x = alpha*gravity.x + (1-alpha)*(a.x||0);
       gravity.y = alpha*gravity.y + (1-alpha)*(a.y||0);
       gravity.z = alpha*gravity.z + (1-alpha)*(a.z||0);
@@ -217,100 +207,113 @@
       const lz = (a.z||0) - gravity.z;
 
       const mag = Math.sqrt(lx*lx + ly*ly + lz*lz);
-
-      // Lissage plus fort de la magnitude
       smoothMagnitude = magSmoothAlpha*smoothMagnitude + (1-magSmoothAlpha)*mag;
 
-      // Logique de détection avec seuils plus élevés
-      if (smoothMagnitude > SHAKE_THRESHOLD) {
-        // Secousse détectée - démarrer ou continuer la séquence
-        if (!isShaking) {
-          startShakeSequence();
+      // Détection du type de secousse
+      if (smoothMagnitude >= FAST_SHAKE_MIN) {
+        // Secousse rapide
+        if (currentMode !== 'fast_shake') {
+          startFastShake();
+          if (navigator.vibrate) navigator.vibrate(100);
+        }
+        resetModeTimeout();
+
+      } else if (smoothMagnitude >= SLOW_SHAKE_MIN && smoothMagnitude < SLOW_SHAKE_MAX) {
+        // Secousse lente
+        if (currentMode !== 'slow_shake') {
+          startSlowShake();
           if (navigator.vibrate) navigator.vibrate(50);
         }
-        // Reset du timeout d'arrêt
-        clearTimeout(shakeTimeout);
-        shakeTimeout = setTimeout(stopShakeSequence, 800); // ↑ Plus de tolérance
+        resetModeTimeout();
 
-      } else if (smoothMagnitude > SLOW_MOVE_THRESHOLD && smoothMagnitude <= SHAKE_THRESHOLD) {
-        // Mouvement lent - flash arc-en-ciel (seulement si pas en mode secousse)
-        if (!isShaking && !flashInterval) {
-          startRainbowFlash();
-        }
       } else {
-        // Immobile ou mouvement très faible
-        if (!isShaking) {
-          stopRainbowFlash();
+        // Pas assez de mouvement
+        if (currentMode !== 'idle') {
+          resetModeTimeout();
         }
       }
     }
 
-    function startRainbowFlash() {
-      if (flashInterval || isShaking) return;
+    function resetModeTimeout() {
+      clearTimeout(modeTimeout);
+      modeTimeout = setTimeout(() => {
+        stopAllModes();
+      }, 600); // Arrêt après 600ms sans mouvement suffisant
+    }
 
+    function startSlowShake() {
+      if (currentMode === 'slow_shake') return;
+
+      stopAllModes();
+      currentMode = 'slow_shake';
+
+      // Flash rapide arc-en-ciel continu (jamais de blanc)
       flashInterval = setInterval(() => {
         container.style.backgroundColor = rainbowColors[colorIndex];
         colorIndex = (colorIndex + 1) % rainbowColors.length;
-      }, 100); // Flash toutes les 100ms
+      }, 80); // Flash très rapide (80ms)
     }
 
-    function stopRainbowFlash() {
+    function startFastShake() {
+      if (currentMode === 'fast_shake') return;
+
+      stopAllModes();
+      currentMode = 'fast_shake';
+      fastShakeStartTime = Date.now();
+      fastShakeStep = 0;
+
+      // Progression lente toutes les secondes
+      updateFastShakeProgression();
+      progressionInterval = setInterval(updateFastShakeProgression, 1000);
+    }
+
+    function updateFastShakeProgression() {
+      if (currentMode !== 'fast_shake') return;
+
+      const elapsed = Math.floor((Date.now() - fastShakeStartTime) / 1000);
+      const step = Math.min(elapsed, fastShakeColors.length - 1);
+
+      container.style.backgroundColor = fastShakeColors[step];
+      fastShakeStep = step;
+
+      // Si on atteint le blanc, on y reste
+      if (step >= fastShakeColors.length - 1) {
+        clearInterval(progressionInterval);
+        progressionInterval = null;
+      }
+    }
+
+    function stopAllModes() {
+      currentMode = 'idle';
+
+      // Arrêter le flash rapide
       if (flashInterval) {
         clearInterval(flashInterval);
         flashInterval = null;
-        if (!isShaking) {
-          container.style.backgroundColor = '#333333'; // Retour au gris
-        }
       }
-    }
 
-    function startShakeSequence() {
-      if (isShaking) return; // Déjà en cours
-
-      isShaking = true;
-      shakeStartTime = Date.now();
-      shakeIntensity = 0;
-      stopRainbowFlash(); // Arrêter le flash arc-en-ciel
-
-      // Démarrer la progression des couleurs
-      updateShakeColor();
-    }
-
-    function updateShakeColor() {
-      if (!isShaking) return;
-
-      const elapsed = (Date.now() - shakeStartTime) / 1000; // secondes écoulées
-      const maxDuration = 6; // 6 secondes pour atteindre le blanc
-
-      // Calculer l'index de couleur basé sur le temps
-      const progress = Math.min(elapsed / maxDuration, 1);
-      const colorIndex = Math.floor(progress * (shakeColors.length - 1));
-
-      container.style.backgroundColor = shakeColors[colorIndex];
-
-      // Continuer la progression si pas encore au blanc
-      if (progress < 1) {
-        setTimeout(updateShakeColor, 100); // Mise à jour toutes les 100ms
+      // Arrêter la progression
+      if (progressionInterval) {
+        clearInterval(progressionInterval);
+        progressionInterval = null;
       }
-    }
 
-    function stopShakeSequence() {
-      isShaking = false;
-      container.style.backgroundColor = '#333333'; // Retour instantané au gris
-      clearTimeout(shakeTimeout);
-      shakeIntensity = 0;
+      // Retour au gris
+      container.style.backgroundColor = '#333333';
+
+      clearTimeout(modeTimeout);
     }
 
     // Démarrage
     startBtn.addEventListener('click', start, {passive: true});
 
-    // Nettoyage périodique plus espacé
+    // Nettoyage périodique
     setInterval(() => {
       if (!running) return;
-      if (!isShaking && !flashInterval && smoothMagnitude < SLOW_MOVE_THRESHOLD * 0.5) {
+      if (currentMode === 'idle' && smoothMagnitude < SLOW_SHAKE_MIN * 0.5) {
         container.style.backgroundColor = '#333333';
       }
-    }, 500); // ↑ Moins fréquent
+    }, 500);
 
     // PWA - Service Worker
     if ('serviceWorker' in navigator) {

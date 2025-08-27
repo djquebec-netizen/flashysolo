@@ -1,4 +1,4 @@
-const CACHE_NAME = 'shake-color-v4';
+const CACHE_NAME = 'shake-color-v5';
 const urlsToCache = [
   './',
   './index.html',
