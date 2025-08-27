@@ -1,11 +1,11 @@
 {
   "name": "Shake Color App",
   "short_name": "ShakeColor",
-  "description": "Mouvement fluide = flash arc-en-ciel, mouvement saccadé = progression vers blanc",
+  "description": "Mouvement fluide = 20 couleurs flash, mouvement saccadé = progression vers blanc 5s",
   "start_url": "./index.html",
   "display": "fullscreen",
-  "background_color": "#333333",
-  "theme_color": "#333333",
+  "background_color": "#000000",
+  "theme_color": "#000000",
   "orientation": "portrait",
   "icons": [
     {

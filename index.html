@@ -18,7 +18,7 @@
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     }
     body {
-      background: #333333;
+      background: #000000;
       color: #fff;
       overflow: hidden;
       touch-action: manipulation;
@@ -59,7 +59,7 @@
     }
     .text-bottom {
       position: absolute;
-      bottom: 30px;
+      bottom: 80px;
       left: 50%;
       transform: translateX(-50%);
       font-size: 28px;
@@ -67,6 +67,24 @@
       letter-spacing: 3px;
       text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
       z-index: 5;
+    }
+    .reset-btn {
+      position: absolute;
+      bottom: 20px;
+      right: 20px;
+      background: rgba(255,255,255,0.1);
+      color: rgba(255,255,255,0.6);
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-size: 12px;
+      cursor: pointer;
+      z-index: 10;
+      transition: all 0.2s ease;
+    }
+    .reset-btn:hover {
+      background: rgba(255,255,255,0.2);
+      color: rgba(255,255,255,0.8);
     }
     .hide { 
       display: none; 
@@ -80,6 +98,10 @@
         padding: 20px 35px;
         font-size: 20px;
       }
+      .reset-btn {
+        font-size: 11px;
+        padding: 6px 10px;
+      }
     }
   </style>
 </head>
@@ -88,6 +110,7 @@
     <div class="text-top hide" id="textTop">SECOUEZ MOI</div>
     <button class="start" id="startBtn">🚀 DÉMARRER</button>
     <div class="text-bottom hide" id="textBottom">SHAKE ME</div>
+    <button class="reset-btn hide" id="resetBtn">↻ Reset</button>
   </div>
 
   <script>
@@ -95,11 +118,13 @@
     const startBtn = document.getElementById('startBtn');
     const textTop = document.getElementById('textTop');
     const textBottom = document.getElementById('textBottom');
+    const resetBtn = document.getElementById('resetBtn');
 
     let running = false;
     let lastTS = 0;
     let flashInterval = null;
     let progressionInterval = null;
+    let whiteTimeout = null;
 
     // Estimation gravité
     const gravity = { x: 0, y: 0, z: 0 };
@@ -111,29 +136,25 @@
 
     // Détection de la "fluidité" vs "saccadé"
     let magnitudeHistory = [];
-    const HISTORY_SIZE = 10; // Garder 10 dernières valeurs
-    let jerkiness = 0; // Mesure des à-coups
+    const HISTORY_SIZE = 10;
+    let jerkiness = 0;
 
     // Seuils
-    const MIN_MOVEMENT = 0.8;     // Mouvement minimum pour déclencher
-    const JERKINESS_THRESHOLD = 1.5; // Au-dessus = saccadé, en-dessous = fluide
+    const MIN_MOVEMENT = 0.8;
+    const JERKINESS_THRESHOLD = 1.5;
 
     // États
-    let currentMode = 'idle'; // 'idle', 'smooth', 'jerky'
+    let currentMode = 'idle'; // 'idle', 'smooth', 'jerky', 'white_hold'
     let modeTimeout = null;
     let jerkyStartTime = 0;
     let jerkyStep = 0;
 
-    // Couleurs arc-en-ciel pour mouvement fluide (flash rapide continu)
+    // 20 couleurs arc-en-ciel pour mouvement fluide
     const rainbowColors = [
-      '#ff0000', '#ff2200', '#ff4400', '#ff6600', '#ff8800', '#ffaa00',
-      '#ffcc00', '#ffee00', '#ffff00', '#ddff00', '#bbff00', '#99ff00',
-      '#77ff00', '#55ff00', '#33ff00', '#11ff00', '#00ff00', '#00ff22',
-      '#00ff44', '#00ff66', '#00ff88', '#00ffaa', '#00ffcc', '#00ffee',
-      '#00ffff', '#00eeff', '#00ccff', '#00aaff', '#0088ff', '#0066ff',
-      '#0044ff', '#0022ff', '#0000ff', '#2200ff', '#4400ff', '#6600ff',
-      '#8800ff', '#aa00ff', '#cc00ff', '#ee00ff', '#ff00ff', '#ff00ee',
-      '#ff00cc', '#ff00aa', '#ff0088', '#ff0066', '#ff0044', '#ff0022'
+      '#ff0000', '#ff4400', '#ff8800', '#ffcc00', '#ffff00',
+      '#ccff00', '#88ff00', '#44ff00', '#00ff00', '#00ff44',
+      '#00ff88', '#00ffcc', '#00ffff', '#00ccff', '#0088ff',
+      '#0044ff', '#0000ff', '#4400ff', '#8800ff', '#cc00ff'
     ];
     let colorIndex = 0;
 
@@ -151,6 +172,7 @@
       startBtn.classList.add('hide');
       textTop.classList.remove('hide');
       textBottom.classList.remove('hide');
+      resetBtn.classList.remove('hide');
       running = true;
 
       if (navigator.vibrate) navigator.vibrate(60);
@@ -168,6 +190,13 @@
       }
     }
 
+    function reset() {
+      stopAllModes();
+      container.style.backgroundColor = '#000000';
+      currentMode = 'idle';
+      if (navigator.vibrate) navigator.vibrate(30);
+    }
+
     function attachMotion(){
       window.addEventListener('devicemotion', onMotion, {passive: true});
     }
@@ -178,6 +207,7 @@
       let touchTimer = null;
 
       container.addEventListener('touchstart', (e) => {
+        if (e.target === resetBtn) return; // Ne pas interférer avec le bouton reset
         e.preventDefault();
         touchStartTime = Date.now();
         touchMoveCount = 0;
@@ -189,27 +219,30 @@
       }, {passive: false});
 
       container.addEventListener('touchend', (e) => {
+        if (e.target === resetBtn) return;
         e.preventDefault();
         const duration = Date.now() - touchStartTime;
 
         clearTimeout(touchTimer);
 
-        if (duration > 100) { // Mouvement assez long
+        if (duration > 100) {
           if (touchMoveCount > 20) {
-            // Beaucoup de mouvements = saccadé
             startJerkyMode();
           } else if (touchMoveCount > 5) {
-            // Peu de mouvements = fluide
             startSmoothMode();
           }
         }
 
-        touchTimer = setTimeout(stopAllModes, 800);
+        touchTimer = setTimeout(() => {
+          if (currentMode !== 'white_hold') {
+            stopAllModes();
+          }
+        }, 800);
       }, {passive: false});
     }
 
     function onMotion(e){
-      if (!running) return;
+      if (!running || currentMode === 'white_hold') return;
 
       const a = e.accelerationIncludingGravity || e.acceleration;
       if (!a) return;
@@ -266,7 +299,10 @@
         resetModeTimeout();
       } else {
         // Pas assez de mouvement
-        if (currentMode !== 'idle') {
+        if (currentMode === 'smooth') {
+          // En mode fluide, retour au noir si pas de mouvement
+          stopSmoothMode();
+        } else if (currentMode !== 'idle' && currentMode !== 'white_hold') {
           resetModeTimeout();
         }
       }
@@ -275,8 +311,10 @@
     function resetModeTimeout() {
       clearTimeout(modeTimeout);
       modeTimeout = setTimeout(() => {
-        stopAllModes();
-      }, 700); // Arrêt après 700ms sans mouvement suffisant
+        if (currentMode !== 'white_hold') {
+          stopAllModes();
+        }
+      }, 700);
     }
 
     function startSmoothMode() {
@@ -285,11 +323,20 @@
       stopAllModes();
       currentMode = 'smooth';
 
-      // Flash arc-en-ciel rapide et continu (jamais de blanc)
+      // Flash arc-en-ciel rapide et continu (20 couleurs)
       flashInterval = setInterval(() => {
         container.style.backgroundColor = rainbowColors[colorIndex];
         colorIndex = (colorIndex + 1) % rainbowColors.length;
-      }, 60); // Flash très rapide (60ms)
+      }, 80); // Flash rapide (80ms)
+    }
+
+    function stopSmoothMode() {
+      if (flashInterval) {
+        clearInterval(flashInterval);
+        flashInterval = null;
+      }
+      currentMode = 'idle';
+      container.style.backgroundColor = '#000000'; // Retour au noir
     }
 
     function startJerkyMode() {
@@ -308,16 +355,23 @@
     function updateJerkyProgression() {
       if (currentMode !== 'jerky') return;
 
-      const elapsed = Math.floor((Date.now() - jerkyStartTime) / 500); // Étapes de 0.5s
+      const elapsed = Math.floor((Date.now() - jerkyStartTime) / 500);
       const step = Math.min(elapsed, jerkyColors.length - 1);
 
       container.style.backgroundColor = jerkyColors[step];
       jerkyStep = step;
 
-      // Si on atteint le blanc, on y reste
+      // Si on atteint le blanc, maintenir pendant 5 secondes
       if (step >= jerkyColors.length - 1) {
         clearInterval(progressionInterval);
         progressionInterval = null;
+        currentMode = 'white_hold';
+
+        // Maintenir le blanc pendant 5 secondes
+        whiteTimeout = setTimeout(() => {
+          container.style.backgroundColor = '#000000'; // Retour au noir
+          currentMode = 'idle';
+        }, 5000);
       }
     }
 
@@ -336,20 +390,29 @@
         progressionInterval = null;
       }
 
-      // Retour au gris
-      container.style.backgroundColor = '#333333';
+      // Arrêter le timeout blanc
+      if (whiteTimeout) {
+        clearTimeout(whiteTimeout);
+        whiteTimeout = null;
+      }
+
+      // Retour au noir
+      if (currentMode !== 'white_hold') {
+        container.style.backgroundColor = '#000000';
+      }
 
       clearTimeout(modeTimeout);
     }
 
-    // Démarrage
+    // Démarrage et reset
     startBtn.addEventListener('click', start, {passive: true});
+    resetBtn.addEventListener('click', reset, {passive: true});
 
     // Nettoyage périodique
     setInterval(() => {
       if (!running) return;
       if (currentMode === 'idle' && smoothMagnitude < MIN_MOVEMENT * 0.5) {
-        container.style.backgroundColor = '#333333';
+        container.style.backgroundColor = '#000000';
       }
     }, 500);
 
@@ -361,7 +424,11 @@
     }
 
     // Empêcher zoom et scroll
-    document.addEventListener('touchmove', (e) => e.preventDefault(), {passive: false});
+    document.addEventListener('touchmove', (e) => {
+      if (e.target !== resetBtn) {
+        e.preventDefault();
+      }
+    }, {passive: false});
     document.addEventListener('gesturestart', (e) => e.preventDefault());
   </script>
 </body>
