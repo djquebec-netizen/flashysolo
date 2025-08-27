@@ -1,7 +1,7 @@
 {
   "name": "Shake Color App",
   "short_name": "ShakeColor",
-  "description": "App qui change de couleur selon le mouvement lent et la fréquence des secousses",
+  "description": "App flash arc-en-ciel au mouvement lent, blanc aux secousses",
   "start_url": "./index.html",
   "display": "fullscreen",
   "background_color": "#333333",
